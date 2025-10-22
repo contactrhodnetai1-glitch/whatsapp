@@ -1,6 +1,6 @@
 fastapi
 uvicorn
 twilio
-cohere
 python-dotenv
+openai
 python-multipart
