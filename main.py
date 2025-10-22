@@ -30,16 +30,17 @@ async def whatsapp_webhook(
     try:
         print(f"Incoming message from {From}: {Body}")
 
-        # Generate reply using OpenAI
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",  # You can change to gpt-4 if you want
+        # OpenAI >=1.0.0 syntax
+        response = openai.chat.completions.create(
+            model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": "You are a helpful WhatsApp assistant."},
                 {"role": "user", "content": Body}
             ],
-            max_tokens=150,
-            temperature=0.7
+            temperature=0.7,
+            max_tokens=150
         )
+
         ai_reply = response.choices[0].message.content.strip()
         print("AI Reply:", ai_reply)
 
