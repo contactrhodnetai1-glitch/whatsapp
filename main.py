@@ -25,27 +25,11 @@ def home():
 
 
 @app.post("/webhook")
-async def whatsapp_webhook(
-    From: str = Form(...),
-    Body: str = Form(...)
-):
-    user_message = Body.strip()
-    print(f"Incoming message from {From}: {user_message}")
-
-    # Generate AI reply using Cohere
-    response = co.generate(
-        model="command-r-plus",
-        prompt=f"User: {user_message}\nReply as a polite, helpful assistant.",
-        max_tokens=150,
-        temperature=0.7
-    )
-    ai_reply = response.generations[0].text.strip()
-
-    # Send message back to WhatsApp user
+async def whatsapp_webhook(From: str = Form(...), Body: str = Form(...)):
+    print(f"Incoming: {From}, {Body}")
     twilio_client.messages.create(
         from_=TWILIO_NUMBER,
-        to=From,
-        body=ai_reply
+        to=f"whatsapp:{From}",
+        body="Hello! This is a test reply."
     )
-
-    return {"status": "reply sent"}
+    return {"status": "sent"}
