@@ -2,6 +2,7 @@ from fastapi import FastAPI, Form
 from twilio.rest import Client
 import openai
 import os
+import asyncio
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -43,6 +44,9 @@ async def whatsapp_webhook(
 
         ai_reply = response.choices[0].message.content.strip()
         print("AI Reply:", ai_reply)
+
+        # Add delay for Twilio sandbox
+        await asyncio.sleep(1)  # 1-second delay
 
         # Send reply via Twilio
         message = twilio_client.messages.create(
