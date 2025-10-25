@@ -25,15 +25,18 @@ async def receive_message(request: Request):
     data = await request.json()
     print(data)
 
-    # Extract message text and sender
     try:
-        message = data["entry"][0]["changes"][0]["value"]["messages"][0]
+        messages = data["entry"][0]["changes"][0]["value"].get("messages", [])
+        if not messages:
+            return {"status": "no messages"}
+
+        message = messages[0]
         sender = message["from"]
         text = message["text"]["body"]
 
         print(f"User ({sender}) said: {text}")
 
-        # Generate AI response
+        # OpenAI reply
         response = openai.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
@@ -43,7 +46,11 @@ async def receive_message(request: Request):
         )
         ai_reply = response.choices[0].message.content.strip()
 
-        # Send back via WhatsApp Cloud API
+        # Ensure + is added
+        if not sender.startswith("+"):
+            sender = f"+{sender}"
+
+        # Send reply via WhatsApp Cloud API
         url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
         headers = {
             "Authorization": f"Bearer {ACCESS_TOKEN}",
@@ -54,7 +61,8 @@ async def receive_message(request: Request):
             "to": sender,
             "text": {"body": ai_reply}
         }
-        requests.post(url, headers=headers, json=payload)
+        r = requests.post(url, headers=headers, json=payload)
+        print("Meta API response:", r.status_code, r.text)
 
     except Exception as e:
         print("Error:", e)
