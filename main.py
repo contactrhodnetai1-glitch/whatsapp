@@ -1,54 +1,62 @@
-from fastapi import FastAPI, Form
-from twilio.rest import Client
+from fastapi import FastAPI, Request
+import requests
 import openai
 import os
-from dotenv import load_dotenv
-
-load_dotenv()
 
 app = FastAPI()
 
-# Twilio setup
-TWILIO_SID = os.getenv("TWILIO_SID")
-TWILIO_AUTH = os.getenv("TWILIO_AUTH")
-TWILIO_NUMBER = os.getenv("TWILIO_NUMBER")
-twilio_client = Client(TWILIO_SID, TWILIO_AUTH)
+VERIFY_TOKEN = "secure_whatsapp_bot"
+ACCESS_TOKEN = os.getenv("META_ACCESS_TOKEN")
+PHONE_NUMBER_ID = os.getenv("PHONE_NUMBER_ID")
+openai.api_key = os.getenv("OPENAI_KEY")
 
-# OpenAI setup
-OPENAI_KEY = os.getenv("OPENAI_KEY")
-openai.api_key = OPENAI_KEY
+@app.get("/webhook")
+async def verify(request: Request):
+    mode = request.query_params.get("hub.mode")
+    token = request.query_params.get("hub.verify_token")
+    challenge = request.query_params.get("hub.challenge")
 
-@app.get("/")
-def home():
-    return {"status": "WhatsApp Bot Running ✅"}
+    if mode == "subscribe" and token == VERIFY_TOKEN:
+        return int(challenge)
+    return {"error": "Verification failed"}
 
 @app.post("/webhook")
-async def whatsapp_webhook(
-    From: str = Form(...),
-    Body: str = Form(...)
-):
-    try:
-        print(f"Incoming message from {From}: {Body}")
+async def receive_message(request: Request):
+    data = await request.json()
+    print(data)
 
-        # OpenAI >=1.0.0 syntax
+    # Extract message text and sender
+    try:
+        message = data["entry"][0]["changes"][0]["value"]["messages"][0]
+        sender = message["from"]
+        text = message["text"]["body"]
+
+        print(f"User ({sender}) said: {text}")
+
+        # Generate AI response
         response = openai.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": "You are a helpful WhatsApp assistant."},
-                {"role": "user", "content": Body}
-            ],
-            temperature=0.7,
-            max_tokens=150
+                {"role": "user", "content": text}
+            ]
         )
-
         ai_reply = response.choices[0].message.content.strip()
-        print("AI Reply:", ai_reply)
 
-        # Log simulated send instead of actually sending
-        print(f"Simulated send to {From}: {ai_reply}")
-
-        return {"status": "sent"}
+        # Send back via WhatsApp Cloud API
+        url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
+        headers = {
+            "Authorization": f"Bearer {ACCESS_TOKEN}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "messaging_product": "whatsapp",
+            "to": sender,
+            "text": {"body": ai_reply}
+        }
+        requests.post(url, headers=headers, json=payload)
 
     except Exception as e:
-        print("Webhook error:", e)
-        return {"status": "error", "detail": str(e)}
+        print("Error:", e)
+
+    return {"status": "received"}
